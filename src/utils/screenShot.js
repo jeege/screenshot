@@ -3,7 +3,7 @@ import { fetchGet } from "./request";
 import path from "path";
 import fs from "fs";
 import puppeteer from "puppeteer-core";
-// import findChrome from "./findChrome";
+import findChrome from "./findChrome";
 import { mkdirsSync, autoScroll, savePath } from "./utils";
 
 const resolve = path.resolve;
@@ -22,31 +22,38 @@ function getSingle(fn) {
 }
 
 const getPupInsatnce = async () => {
-  try {
+  const { executablePath } = await findChrome({});
+  let browser, window, page;
+  if (executablePath) {
+    // 已安装chrome
+    browser = await puppeteer.launch({
+      executablePath: executablePath
+    });
+    page = await browser.newPage();
+  } else {
+    // 未安装，使用electron自带Chromium
     const port = app.commandLine.getSwitchValue("remote-debugging-port");
     const { webSocketDebuggerUrl } = await fetchGet(
       `http://127.0.0.1:${port}/json/version`
     );
-    const browser = await puppeteer.connect({
+    browser = await puppeteer.connect({
       browserWSEndpoint: webSocketDebuggerUrl,
       defaultViewport: null
     });
     const window = new BrowserWindow({
-      show: false
+      fullscreen: true,
+      show: true
     });
     const url = "about:blank";
     await window.loadURL(url);
     const pages = await browser.pages();
-    const page = pages.find(page => page.url() === window.webContents.getURL());
-
-    return {
-      browser,
-      window,
-      page
-    };
-  } catch (error) {
-    console.log("错误", error);
+    page = pages.find(page => page.url() === window.webContents.getURL());
   }
+  return {
+    browser,
+    window,
+    page
+  };
 };
 
 const getSinglePupInsatnce = getSingle(getPupInsatnce);
@@ -57,25 +64,8 @@ export class ScreenShot {
     this.page = config.page;
     this.window = config.window;
     this.log = config.logFn;
-    // this.chromeApp = {};
     this.checkPath();
   }
-
-  // async initPage() {
-  //   if (!this.chromeApp.executablePath) {
-  //     this.chromeApp = await findChrome({});
-  //     if (!this.chromeApp.executablePath) {
-  //       this.log("找不到Chrome浏览器，请先下载安装");
-  //       return false;
-  //     }
-  //   }
-  //   this.checkPath();
-  //   this.brower = await puppeteer.launch({
-  //     headless: true,
-  //     executablePath: this.chromeApp.executablePath
-  //   });
-  //   this.page = await this.brower.newPage();
-  // }
 
   checkPath() {
     if (!fs.existsSync(savePath)) {
@@ -94,7 +84,9 @@ export class ScreenShot {
 
   async shot(title) {
     await this.page.screenshot({
-      path: resolve(savePath, title + ".png"),
+      path: resolve(savePath, title + ".jpeg"),
+      type: "jpeg",
+      quality: 70,
       fullPage: true
     });
     let printPath =
@@ -152,6 +144,7 @@ export async function screenShotWithStop(logFn) {
 }
 
 export async function singleShotHandle(logFn, url) {
+  // https://super.fanli.com/brand-3765
   const screen = await getSceenShotInstance(logFn);
   if (screen.page) {
     logFn(`正在加载：${url}`);

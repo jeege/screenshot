@@ -29,19 +29,19 @@ export const mkdirsSync = dirname => {
 };
 
 export const autoScroll = async page => {
-  await page.evaluate(async () => {
-    await new Promise(resolve => {
+  return await page.evaluate(async () => {
+    return await new Promise(resolve => {
       let totleHeight = 0;
-      const distance = 800;
+      const distance = 1000;
       const timer = setInterval(() => {
         const scrollHeight = document.body.scrollHeight;
         window.scrollBy(0, distance);
         totleHeight += distance;
         if (totleHeight >= scrollHeight) {
           clearInterval(timer);
-          resolve();
+          resolve(scrollHeight);
         }
-      }, 200);
+      }, 100);
     });
   });
 };
